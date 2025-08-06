@@ -50,6 +50,7 @@
             list-style-type: none;
             margin: 0;
             padding: 0;
+            bottom: 0;
         }
 
         #messages>li {
@@ -63,14 +64,27 @@
 </head>
 
 <body>
-    <ul id="messages"></ul>
+    <p id="messages"></p>
     <form id="form" action="">
-        <input id="input" autocomplete="off" /><button>Send</button>
+        <input id="input" autocomplete="off" /><button id="btn">Send</button>
     </form>
 </body>
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io();
+    const form = document.getElementById('form')
+    const inputdata = document.getElementById('input')
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const msg = inputdata.value
+        socket.emit("chat msg", msg)
+        inputdata.value = ""
+    })
+    socket.on('chat msg', (msg) => {
+        const item = document.createElement('li');
+        item.textContent = msg;
+        document.getElementById('messages').appendChild(item);
+    })
 </script>
 
 </html>
