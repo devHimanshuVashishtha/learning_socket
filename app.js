@@ -25,6 +25,12 @@ server.on("error", (err) => {
 
 io.on("connection", async (socket) => {
   console.log("a user connected");
+  try {
+    const message = await Message.find();
+    socket.emit("message History", message);
+  } catch (err) {
+    console.error("ERROR:", err);
+  }
   socket.on("chat msg", async (msg) => {
     const newMessage = new Message({content:msg});
     try {

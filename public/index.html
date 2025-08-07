@@ -88,6 +88,19 @@
         item.textContent = `You have been disconnected. Reason: ${resa}`;
         messages.appendChild(item);
     })
+
+    socket.on("message History",(history)=>{
+        messages.innerHTML=""
+        history.forEach(msg => {
+            const item = document.createElement('li')
+            item.textContent = msg.content
+            messages.appendChild(item)
+        });
+        window.scrollTo(0,document.body.scrollHeight)
+
+    })
+
+
     Disconnectbtn.textContent = 'Disconnect';
     Disconnectbtn.addEventListener('click', (e) => {
         // e.preventDefault();
