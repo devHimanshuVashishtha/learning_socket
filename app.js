@@ -4,7 +4,6 @@ const { join } = require("node:path");
 const { Server } = require("socket.io");
 const connectDB = require("./config/database");
 const Message = require("./models/messagemodel");
-const { timeStamp } = require("node:console");
 require("dotenv").config();
 
 connectDB();
