@@ -6,15 +6,17 @@ require("dotenv").config();
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  connectionStateRecovery: {},
+});
 
-app.use(express.static(join(__dirname, "./public/index.html")));
+app.use(express.static(join(__dirname, "public")));
 
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "public", "index.html"));
 });
 server.on("error", (err) => {
-  console.Error("Server Error:", err);
+  console.error("Server Error:", err);
 });
 
 io.on("connection", (socket) => {

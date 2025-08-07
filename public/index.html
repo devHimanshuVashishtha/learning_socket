@@ -68,6 +68,7 @@
     <form id="form" action="">
         <input id="input" autocomplete="off" placeholder="Type your messages....." />
         <button id="btn" type="submit">Send</button>
+        <button id="disconnect-btn" type="button">Disconnect</button>
     </form>
 </body>
 <script src="/socket.io/socket.io.js"></script>
@@ -77,11 +78,28 @@
     const inputdata = document.getElementById('input')
     const messages = document.getElementById('messages')
     const btn = document.getElementById('btn')
+    const Disconnectbtn = document.getElementById('disconnect-btn')
     socket.on('connect', () => {
         console.log("connection stablish")
     })
     socket.on("disconnect", (resa) => {
         console.log("message of client-error:", resa)
+        const item = document.createElement('li');
+        item.textContent = `You have been disconnected. Reason: ${resa}`;
+        messages.appendChild(item);
+    })
+    Disconnectbtn.textContent = 'Disconnect';
+    Disconnectbtn.addEventListener('click', (e) => {
+        // e.preventDefault();
+        if (socket.connected) {
+            Disconnectbtn.innerText = 'connect'
+            socket.disconnect();
+        }
+        else {
+            Disconnectbtn.innerText = 'Disconnect'
+            socket.connect();
+
+        }
     })
 
     form.addEventListener('submit', (e) => {
