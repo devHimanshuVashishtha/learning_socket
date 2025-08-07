@@ -64,9 +64,10 @@
 </head>
 
 <body>
-    <p id="messages"></p>
+    <ul id="messages"></ul>
     <form id="form" action="">
-        <input id="input" autocomplete="off" /><button id="btn">Send</button>
+        <input id="input" autocomplete="off" placeholder="Type your messages....." />
+        <button id="btn" type="submit">Send</button>
     </form>
 </body>
 <script src="/socket.io/socket.io.js"></script>
@@ -74,16 +75,28 @@
     const socket = io();
     const form = document.getElementById('form')
     const inputdata = document.getElementById('input')
+    const messages = document.getElementById('messages')
+    const btn = document.getElementById('btn')
+    socket.on('connect', () => {
+        console.log("connection stablish")
+    })
+    socket.on("disconnect", (resa) => {
+        console.log("message of client-error:", resa)
+    })
+
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        const msg = inputdata.value
-        socket.emit("chat msg", msg)
-        inputdata.value = ""
+        const msg = inputdata.value.trim()
+        if (msg) {
+            socket.emit("chat msg", msg)
+            inputdata.value = ""
+        }
     })
+
     socket.on('chat msg', (msg) => {
         const item = document.createElement('li');
         item.textContent = msg;
-        document.getElementById('messages').appendChild(item);
+        messages.appendChild(item);
     })
 </script>
 
