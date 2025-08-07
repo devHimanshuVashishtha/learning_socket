@@ -79,6 +79,21 @@
             serverOffset
         }
     });
+
+    socket.on('connect_error', (err) => {
+        const item = document.createElement('li');
+        item.textContent = `Connection failed: ${err.message}.`;
+        messages.appendChild(item);
+    });
+
+    socket.on('error message', (error) => {
+        const item = document.createElement('li');
+        item.textContent = `Error: ${error}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+
+
     const form = document.getElementById('form')
     const inputdata = document.getElementById('input')
     const messages = document.getElementById('messages')
