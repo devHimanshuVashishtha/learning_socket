@@ -3,6 +3,7 @@ const { createServer } = require("node:http");
 const { join } = require("node:path");
 const { Server } = require("socket.io");
 const connectDB = require("./config/database");
+const Message = require("./models/messagemodel");
 require("dotenv").config();
 
 connectDB();
@@ -22,14 +23,21 @@ server.on("error", (err) => {
   console.error("Server Error:", err);
 });
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   console.log("a user connected");
-  socket.on("chat msg", (msg) => {
-    if (msg && msg.trim().length > 0) {
-      console.log("Message:", msg);
-      io.emit("chat msg", msg);
-    } else {
-      console.log("Enter a valid message");
+  socket.on("chat msg", async (msg) => {
+    const newMessage = new Message({content:msg});
+    try {
+      if (msg && msg.trim().length > 0) {
+        console.log("Message:", msg);
+
+        await newMessage.save();
+        io.emit("chat msg", msg);
+      } else {
+        console.log("Enter a valid message");
+      }
+    } catch (err) {
+      console.err("Error:", err);
     }
   });
   socket.on("disconnect", (resa) => {
