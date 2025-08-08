@@ -73,11 +73,14 @@
 </body>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    let serverOffset = 0;
+
+    let counter = 0;
     const socket = io({
         auth: {
-            serverOffset
-        }
+            serverOffset: 0
+        },
+        ackTimeout: 1000,
+        retiries: 3,
     });
 
     socket.on('connect_error', (err) => {
@@ -127,17 +130,24 @@
         e.preventDefault();
         const msg = inputdata.value.trim()
         if (msg) {
-            socket.emit("chat msg", msg)
+            const clientOffset = `${socket.id} - ${counter++}`
+            socket.emit("chat msg", msg, clientOffset, (acknowledgedOffset, err) => {
+                if (err) {
+                    console.log('server failed to run the callback')
+                    return
+                }
+                console.log(`ackoffset:${acknowledgedOffset}, clientOffset:${clientOffset}`)
+            })
             inputdata.value = ""
         }
     })
 
-    socket.on('chat msg', (msg, newOffset) => {
+    socket.on('chat msg', (msg, serverOffset) => {
         const item = document.createElement('li');
         item.textContent = `${msg.username}: ${msg.content}`;
         messages.appendChild(item);
         window.scrollTo(0, document.body.scrollHeight);
-        serverOffset = newOffset
+        socket.auth.serverOffset = serverOffset
     })
 </script>
 
