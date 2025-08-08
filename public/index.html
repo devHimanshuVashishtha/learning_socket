@@ -64,6 +64,10 @@
 </head>
 
 <body>
+    <div>
+        <strong>Users Online (<span id="user-count">0</span>):</strong>
+        <ul id="users-list"></ul>
+    </div>
     <ul id="messages"></ul>
     <form id="form" action="">
         <input id="input" autocomplete="off" placeholder="Type your messages....." />
@@ -102,6 +106,8 @@
     const messages = document.getElementById('messages')
     const btn = document.getElementById('btn')
     const Disconnectbtn = document.getElementById('disconnect-btn')
+    const usersList = document.getElementById('users-list');
+    const userCountSpan = document.getElementById('user-count');
     socket.on('connect', () => {
         console.log("connection stablish")
     })
@@ -111,6 +117,16 @@
         item.textContent = `you disconnected. Reason: ${resa}`;
         messages.appendChild(item);
     })
+
+    socket.on('updateUsers', (data) => {
+        userCountSpan.textContent = data.count;
+        usersList.innerHTML = '';
+        data.users.forEach(user => {
+            const li = document.createElement('li');
+            li.textContent = user;
+            usersList.appendChild(li);
+        });
+    });
 
 
     Disconnectbtn.textContent = 'Disconnect';

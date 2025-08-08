@@ -5,26 +5,25 @@ const { Server } = require("socket.io");
 const connectDB = require("./config/database");
 const Message = require("./models/messagemodel");
 require("dotenv").config();
-const { availableParallelism } = require("node:os");
-const cluster = require("node:cluster");
-const { createAdapter, setupPrimary } = require("@socket.io/cluster-adapter");
-if (cluster.isPrimary) {
-  const numCPUs = availableParallelism();
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork({
-      PORT: 3000 + i,
-    });
-  }
-  return setupPrimary();
-}
-
+// const { availableParallelism } = require("node:os");
+// const cluster = require("node:cluster");
+// const { createAdapter, setupPrimary } = require("@socket.io/cluster-adapter");
+// if (cluster.isPrimary) {
+//   const numCPUs = availableParallelism();
+//   for (let i = 0; i < numCPUs; i++) {
+//     cluster.fork({
+//       PORT: 3000 + i,
+//     });
+//   }
+//   connectDB();
+//   return setupPrimary();
+// }
 connectDB();
-
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
-  adapter: createAdapter(),
+  // adapter: createAdapter(),
 });
 
 app.use(express.static(join(__dirname, "public")));
@@ -35,10 +34,12 @@ app.get("/", (req, res) => {
 server.on("error", (err) => {
   console.error("Server Error:", err);
 });
-
+let users = [];
 io.on("connection", async (socket) => {
   socket.username = `User-${socket.id.substring(0, 5)}`;
+  users.push(socket.username);
   console.log("a user connected", socket.username);
+  io.emit("updateUsers", { users, count: users.length });
   if (socket.handshake.auth.serverOffset) {
     console.log(`recovering message for ${socket.username}`);
     try {
@@ -110,6 +111,8 @@ io.on("connection", async (socket) => {
   });
   socket.on("disconnect", (resa) => {
     console.log(`${socket.username} disconnected`, resa);
+    users = users.filter((u) => u !== socket.username);
+    io.emit("updateUsers", { users, count: users.length });
   });
 
   socket.on("error", (err) => {
