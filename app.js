@@ -5,6 +5,18 @@ const { Server } = require("socket.io");
 const connectDB = require("./config/database");
 const Message = require("./models/messagemodel");
 require("dotenv").config();
+const { availableParallelism } = require("node:os");
+const cluster = require("node:cluster");
+const { createAdapter, setupPrimary } = require("@socket.io/cluster-adapter");
+if (cluster.isPrimary) {
+  const numCPUs = availableParallelism();
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork({
+      PORT: 3000 + i,
+    });
+  }
+  return setupPrimary();
+}
 
 connectDB();
 
@@ -12,6 +24,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
+  adapter: createAdapter(),
 });
 
 app.use(express.static(join(__dirname, "public")));
