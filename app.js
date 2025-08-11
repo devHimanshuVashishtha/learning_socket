@@ -4,6 +4,7 @@ const { join } = require("node:path");
 const { Server } = require("socket.io");
 const connectDB = require("./config/database");
 const Message = require("./models/messagemodel");
+const multer = require("multer");
 require("dotenv").config();
 connectDB();
 const app = express();
@@ -11,8 +12,21 @@ const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
 });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, join(__dirname, "public/uploads")),
+  filename: (req, file, cb) => {
+    const ext = file.originalname.split(".").pop();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
+  },
+});
+const upload = multer({ storage });
 
 app.use(express.static(join(__dirname, "public")));
+app.use("/uploads", express.static(join(__dirname, "public/uploads")));
+app.post("/upload-image", upload.single("image"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  res.json({ imageUrl: `/uploads/${req.file.filename}` });
+});
 
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "public", "index.html"));
@@ -82,7 +96,22 @@ io.on("connection", async (socket) => {
       clientOffset: clientOffset,
     });
     try {
-      if (msg && msg.trim().length > 0) {
+      let isValidMessage = false;
+      if (typeof callback !== "function") {
+        callback = () => {};
+      }
+
+      if (typeof msg === "string") {
+        isValidMessage = msg.trim().length > 0;
+      } else if (typeof msg === "object" && msg.type === "image" && msg.url) {
+        isValidMessage = true;
+      }
+
+      if (!isValidMessage) {
+        socket.emit("error message", "Your message not sent: invalid content.");
+        return callback(null, "failed to return call back");
+      }
+      if (msg) {
         console.log("Message:", msg);
 
         await newMessage.save();
