@@ -5,25 +5,11 @@ const { Server } = require("socket.io");
 const connectDB = require("./config/database");
 const Message = require("./models/messagemodel");
 require("dotenv").config();
-// const { availableParallelism } = require("node:os");
-// const cluster = require("node:cluster");
-// const { createAdapter, setupPrimary } = require("@socket.io/cluster-adapter");
-// if (cluster.isPrimary) {
-//   const numCPUs = availableParallelism();
-//   for (let i = 0; i < numCPUs; i++) {
-//     cluster.fork({
-//       PORT: 3000 + i,
-//     });
-//   }
-//   connectDB();
-//   return setupPrimary();
-// }
 connectDB();
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
-  // adapter: createAdapter(),
 });
 
 app.use(express.static(join(__dirname, "public")));
@@ -35,6 +21,7 @@ server.on("error", (err) => {
   console.error("Server Error:", err);
 });
 let users = [];
+
 io.on("connection", async (socket) => {
   socket.username = `User-${socket.id.substring(0, 5)}`;
   users.push(socket.username);
@@ -46,10 +33,12 @@ io.on("connection", async (socket) => {
       const messages = await Message.find({
         _id: { $gt: socket.handshake.auth.serverOffset },
       }).sort({ createdAt: 1 });
+
       messages.forEach((msg) => {
         socket.emit(
           "chat msg",
           {
+            _id: msg._id.toString(),
             content: msg.content,
             username: msg.username,
           },
@@ -72,7 +61,11 @@ io.on("connection", async (socket) => {
       messages.forEach((mess) => {
         socket.emit(
           "chat msg",
-          { content: mess.content, username: mess.username },
+          {
+            _id: mess._id.toString(),
+            content: mess.content,
+            username: mess.username,
+          },
           mess._id.toString()
         );
       });
@@ -96,7 +89,11 @@ io.on("connection", async (socket) => {
         const serverOffset = newMessage._id.toString();
         io.emit(
           "chat msg",
-          { content: newMessage.content, username: newMessage.username },
+          {
+            _id: serverOffset,
+            content: newMessage.content,
+            username: newMessage.username,
+          },
           serverOffset
         );
         callback(serverOffset);
@@ -109,6 +106,59 @@ io.on("connection", async (socket) => {
       console.error("Error:", err);
     }
   });
+
+  socket.on("delete message", async (messageId) => {
+    try {
+      const deleteData = await Message.findById(messageId);
+      if (!deleteData)
+        return socket.emit("error message", "Message not found.");
+      if (deleteData.username !== socket.username) {
+        return socket.emit(
+          "error message",
+          "You can only delete your own messages."
+        );
+      }
+      await Message.findByIdAndDelete(messageId);
+      io.emit("message deleted", messageId);
+    } catch (err) {
+      console.error("Delete Error:", err);
+    }
+  });
+  socket.on("update message", async ({ messageId, newContent }) => {
+    try {
+      const updateData = await Message.findById(messageId);
+      if (!updateData)
+        return socket.emit("error message", "Message not found.");
+      if (updateData.username !== socket.username) {
+        return socket.emit(
+          "error message",
+          "You can only update your own messages."
+        );
+      }
+      const updated = await Message.findByIdAndUpdate(
+        messageId,
+        { content: newContent },
+        { new: true }
+      );
+      if (updated.username !== socket.username) {
+        return socket.emit(
+          "error message",
+          "You can only update your own messages."
+        );
+      }
+
+      if (updated) {
+        io.emit("message updated", {
+          _id: messageId,
+          content: updated.content,
+        });
+      }
+    } catch (err) {
+      console.error("Update Error:", err);
+      socket.emit("error message", "Failed to update message.");
+    }
+  });
+
   socket.on("disconnect", (resa) => {
     console.log(`${socket.username} disconnected`, resa);
     users = users.filter((u) => u !== socket.username);

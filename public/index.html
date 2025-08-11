@@ -94,6 +94,13 @@
         retiries: 3,
     });
 
+    const form = document.getElementById('form')
+    const inputdata = document.getElementById('input')
+    const messages = document.getElementById('messages')
+    const disconnectBtn = document.getElementById('disconnect-btn')
+    const usersList = document.getElementById('users-list');
+    const userCountSpan = document.getElementById('user-count');
+
     socket.on('connect_error', (err) => {
         const item = document.createElement('li');
         item.textContent = `Connection failed: ${err.message}.`;
@@ -108,13 +115,7 @@
     });
 
 
-    const form = document.getElementById('form')
-    const inputdata = document.getElementById('input')
-    const messages = document.getElementById('messages')
-    const btn = document.getElementById('btn')
-    const Disconnectbtn = document.getElementById('disconnect-btn')
-    const usersList = document.getElementById('users-list');
-    const userCountSpan = document.getElementById('user-count');
+
     socket.on('connect', () => {
         console.log("connection stablish")
     })
@@ -136,18 +137,43 @@
     });
 
 
-    Disconnectbtn.textContent = 'Disconnect';
-    Disconnectbtn.addEventListener('click', (e) => {
+    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.addEventListener('click', (e) => {
         if (socket.connected) {
-            Disconnectbtn.innerText = 'connect'
+            disconnectBtn.innerText = 'connect'
             socket.disconnect();
         }
         else {
-            Disconnectbtn.innerText = 'Disconnect'
+            disconnectBtn.innerText = 'Disconnect'
             socket.connect();
 
         }
     })
+    function createmessage(msg) {
+        const li = document.createElement('li')
+        li.dataset.id = msg._id;
+        li.innerHTML = `      
+        <strong>${msg.username}:</strong>
+        <span class="content">${msg.content}</span>
+        <button class="btn1 update-btn">Update</button>
+        <button class="btn1 delete-btn">Delete</button>
+        `;
+        li.querySelector('.delete-btn').addEventListener('click', () => {
+            if (confirm("Are you sure you want to delete this message?")) {
+                socket.emit("delete message", msg._id);
+            }
+        });
+        li.querySelector('.update-btn').addEventListener('click', () => {
+            const newContent = prompt("Enter new message:");
+            if (newContent && newContent.trim()) {
+                socket.emit("update message", {
+                    messageId: msg._id,
+                    newContent: newContent.trim()
+                });
+            }
+        });
+        return li;
+    }
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -166,12 +192,25 @@
     })
 
     socket.on('chat msg', (msg, serverOffset) => {
-        const item = document.createElement('li');
-        item.innerHTML = `<li><button class ="btn1">update</button><button class ="btn1">Delete</button>${msg.username}: ${msg.content}</li>`;
+        const item = createmessage(msg)
         messages.appendChild(item);
         window.scrollTo(0, document.body.scrollHeight);
-        socket.auth.serverOffset = serverOffset
+        socket.auth.serverOffset = serverOffset;
     })
+
+    socket.on('message deleted', (id) => {
+        const li = document.querySelector(`li[data-id="${id}"]`)
+        if (li) li.remove()
+    })
+    socket.on("message updated", (updatedMsg) => {
+        const li = document.querySelector(`li[data-id="${updatedMsg._id}"]`)
+        if (li) {
+            const contentSpan = li.querySelector(".content");
+            if (contentSpan) {
+                contentSpan.textContent = updatedMsg.content;
+            }
+        }
+    });
 </script>
 
 </html>
