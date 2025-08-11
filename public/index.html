@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Socket.IO chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding-bottom: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #form {
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.25rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            height: 3rem;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #input {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
+
+        #input:focus {
+            outline: none;
+        }
+
+        #form>button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            outline: none;
+            color: #fff;
+        }
+
+        #messages img {
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 4px;
+        }
+
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            bottom: 0;
+        }
+
+        #messages>li {
+            padding: 0.5rem 1rem;
+        }
+
+        #messages>li .btn1 {
+            margin: 5px;
+            font-size: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #messages>li:nth-child(odd) {
+            background: #efefef;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <strong>Users Online (<span id="user-count">0</span>):</strong>
+        <ul id="users-list"></ul>
+    </div>
+    <ul id="messages"></ul>
+    <form id="form" action="">
+        <input id="input" autocomplete="off" placeholder="Type your messages....." />
+        <input type="file" id="imageInput" accept="image/*" />
+        <button id="btn" type="submit">Send</button>
+        <button id="disconnect-btn" type="button">Disconnect</button>
+    </form>
+</body>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+
+    let counter = 0;
+    const socket = io({
+        auth: {
+            serverOffset: 0
+        },
+        ackTimeout: 1000,
+        retiries: 3,
+    });
+
+    const form = document.getElementById('form')
+    const inputdata = document.getElementById('input')
+    const messages = document.getElementById('messages')
+    const disconnectBtn = document.getElementById('disconnect-btn')
+    const usersList = document.getElementById('users-list');
+    const userCountSpan = document.getElementById('user-count');
+    const imageInput = document.getElementById("imageInput");
+
+    socket.on('connect_error', (err) => {
+        const item = document.createElement('li');
+        item.textContent = `Connection failed: ${err.message}.`;
+        messages.appendChild(item);
+    });
+
+    socket.on('error message', (error) => {
+        const item = document.createElement('li');
+        item.textContent = `Error: ${error}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+
+
+
+    socket.on('connect', () => {
+        console.log("connection stablish")
+    })
+    socket.on("disconnect", (resa) => {
+        console.log("message of client-error:", resa)
+        const item = document.createElement('li');
+        item.textContent = `you disconnected. Reason: ${resa}`;
+        messages.appendChild(item);
+    })
+
+    socket.on('updateUsers', (data) => {
+        userCountSpan.textContent = data.count;
+        usersList.innerHTML = '';
+        data.users.forEach(user => {
+            const li = document.createElement('li');
+            li.textContent = user;
+            usersList.appendChild(li);
+        });
+    });
+
+
+    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.addEventListener('click', (e) => {
+        if (socket.connected) {
+            disconnectBtn.innerText = 'connect'
+            socket.disconnect();
+        }
+        else {
+            disconnectBtn.innerText = 'Disconnect'
+            socket.connect();
+
+        }
+    })
+    function createmessage(msg) {
+        const li = document.createElement('li')
+        li.dataset.id = msg._id;
+        if (typeof msg.content === "object" && msg.content.type === "image") {
+            li.innerHTML = `
+          <strong>${msg.username}:</strong><br>
+          <img src="${msg.content.url}" alt="uploaded image" />
+          <button class="btn1 delete-btn">Delete</button>
+        `;
+        } else {
+            li.innerHTML = `
+          <strong>${msg.username}:</strong>
+          <span class="content">${msg.content}</span>
+          <button class="btn1 update-btn">Update</button>
+          <button class="btn1 delete-btn">Delete</button>
+        `;
+        }
+
+        const deleteBtn = li.querySelector('.delete-btn')
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (confirm("Are you sure you want to delete this message?")) {
+                    socket.emit("delete message", msg._id);
+                }
+            });
+        }
+        const updateBtn = li.querySelector('.update-btn')
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+                const newContent = prompt("Enter new message:");
+                if (newContent && newContent.trim()) {
+                    socket.emit("update message", {
+                        messageId: msg._id,
+                        newContent: newContent.trim()
+                    });
+                }
+            });
+        }
+        return li;
+    }
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const msg = inputdata.value.trim()
+        if (msg) {
+            const clientOffset = `${socket.id} - ${counter++}`
+            socket.emit("chat msg", msg, clientOffset, (acknowledgedOffset, err) => {
+                if (err) {
+                    console.log('server failed to run the callback')
+                    return
+                }
+                console.log(`ackoffset:${acknowledgedOffset}, clientOffset:${clientOffset}`)
+            })
+            inputdata.value = ""
+        }
+    })
+
+    socket.on('chat msg', (msg, serverOffset) => {
+        const item = createmessage(msg)
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+        socket.auth.serverOffset = serverOffset;
+    })
+
+    socket.on('message deleted', (id) => {
+        const li = document.querySelector(`li[data-id="${id}"]`)
+        if (li) li.remove()
+    })
+    socket.on("message updated", (updatedMsg) => {
+        const li = document.querySelector(`li[data-id="${updatedMsg._id}"]`)
+        if (li) {
+            const contentSpan = li.querySelector(".content");
+            if (contentSpan) {
+                contentSpan.textContent = updatedMsg.content;
+            }
+        }
+    });
+
+    imageInput.addEventListener("change", async () => {
+        if (imageInput.files.length === 0) return;
+
+        const file = imageInput.files[0];
+        const formData = new FormData();
+        formData.append("image", file);
+
+        try {
+            const res = await fetch("/upload-image", {
+                method: "POST",
+                body: formData,
+            });
+            if (!res.ok) throw new Error("Upload failed");
+
+            const data = await res.json();
+            socket.emit("chat msg", { type: "image", url: data.imageUrl }, () => {
+                imageInput.value = "";
+            });
+        } catch (err) {
+            alert("Image upload failed: " + err.message);
+        }
+    });
+</script>
+
+</html>
